@@ -87,9 +87,13 @@ func defaultString(strs ...string) string {
 func main() {
 	e := echo.New()
 	g := e.Group(defaultString(os.Getenv("CONTEXT_PATH"), ""))
+
+	// ping
 	g.GET("/ping", func(c echo.Context) error {
 		return c.String(http.StatusOK, "OK")
 	})
+
+	// upload
 	g.POST("/upload", func(c echo.Context) error {
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -113,7 +117,7 @@ func main() {
 		genePanelPresent := false
 
 		// import gene panels if present
-		fmt.Println("Importing gene panels, if present")
+		fmt.Println("--------------importing gene panels, if present")
 		err = filepath.Walk(studyDir, func(path string, info fs.FileInfo, err error) error {
 			if err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -127,6 +131,7 @@ func main() {
 				fileData = string(fileData1)
 			}
 			isGenePanelFile := !strings.Contains(path, "._") && strings.Contains(path, "_gene_panel_") && fileData != "" && strings.Contains(fileData, "stable_id") && strings.Contains(fileData, "description") && strings.Contains(fileData, "gene_list")
+			fmt.Printf("---%s: %v\n", path, isGenePanelFile)
 			if isGenePanelFile {
 				genePanelPresent = true
 				fmt.Printf("File present - %s\n", path)
@@ -140,21 +145,21 @@ func main() {
 				cmd.Stdout = &so
 				cmd.Stderr = os.Stderr
 				if err := cmd.Start(); err != nil {
-
+					return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 				}
 				if err := cmd.Wait(); err != nil {
 					return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 				}
-				fmt.Println("Done")
+				fmt.Println("---imported")
 			}
 			return nil
 		})
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
-		fmt.Println("Done")
+		fmt.Println("----------------done importing gene panels")
 
-		fmt.Println("Clearing cache")
+		fmt.Println("----------------clearing cache")
 		if genePanelPresent {
 			fmt.Printf("%s/api/cache\n", url)
 			req, err := http.NewRequest(http.MethodDelete, url+"/api/cache", nil)
@@ -170,14 +175,14 @@ func main() {
 			if err != nil {
 				return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 			}
-			fmt.Printf("%s\n%s\n", resp_str, resp.StatusCode)
+			fmt.Printf("%s\n%d\n", resp_str, resp.StatusCode)
 			if resp.StatusCode != http.StatusOK {
 				return fmt.Errorf("error importing gene panels for the study")
 			}
 		}
-		fmt.Println("Done")
+		fmt.Println("----------------done clearing cache")
 
-		fmt.Println("Importing")
+		fmt.Println("----------------importing study")
 		args := []string{
 			"-u",
 			os.Getenv("CBIOPORTAL_URL"),
@@ -196,7 +201,7 @@ func main() {
 		if err := cmd.Wait(); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
-		fmt.Println("Done")
+		fmt.Println("----------------done importing study")
 
 		return c.String(http.StatusOK, file.Filename)
 	})
