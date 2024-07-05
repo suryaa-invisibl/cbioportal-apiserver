@@ -17,7 +17,7 @@ func main() {
 	})
 
 	// cbioportal apis
-	g.POST("/upload", func(c echo.Context) error {
+	g.POST("api/upload", func(c echo.Context) error {
 		err := routes.Upload(c)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -31,14 +31,14 @@ func main() {
 		}
 		return c.String(http.StatusOK, "success")
 	})
-	g.GET("/filters", func(c echo.Context) error {
+	g.GET("api/studies/get-filters", func(c echo.Context) error {
 		data, err := routes.GetFilters(c)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 		return c.JSON(http.StatusOK, map[string]any{"data": data})
 	})
-	g.GET("/studies/filter", func(c echo.Context) error {
+	g.GET("api/studies/apply-filters", func(c echo.Context) error {
 		data, err := routes.GetStudiesWithFilters(c)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
