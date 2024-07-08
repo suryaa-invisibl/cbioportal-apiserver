@@ -45,6 +45,13 @@ func main() {
 		}
 		return c.JSON(http.StatusOK, map[string]any{"data": data})
 	})
+	g.POST("/api/studies/apply-filters", func(c echo.Context) error {
+		data, err := routes.GetStudiesWithFiltersV2(c)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		return c.JSON(http.StatusOK, map[string]any{"data": data})
+	})
 
 	e.Logger.Fatal(e.Start(":9000"))
 }
