@@ -81,14 +81,6 @@ func Upload(c echo.Context) error {
 	}
 	fmt.Println("----------------done clearing cache")
 
-	// validate study
-	fmt.Println("----------------validating study")
-	err = cmd.New("./validateData.py", "core/scripts/importer", "-s", studyDir, "-n").Execute()
-	if err != nil {
-		return err
-	}
-	fmt.Println("----------------done validating study")
-
 	// import study
 	fmt.Println("----------------importing study")
 	err = cmd.New("./metaImport.py", "core/scripts/importer", "-u", os.Getenv("CBIOPORTAL_URL"), "-s", studyDir, "-o").Execute()
