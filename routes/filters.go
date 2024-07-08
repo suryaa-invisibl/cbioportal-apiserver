@@ -107,7 +107,7 @@ func GetStudiesWithFilters(c echo.Context) ([]types.CancerStudy, error) {
 }
 
 func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
-	filters := map[string]string{}
+	filters := map[string][]string{}
 	if err := c.Bind(&filters); err != nil {
 		return nil, err
 	}
@@ -119,8 +119,7 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 	var results *sql.Rows
 	var err error
 	switch {
-	case treatment != "" && sourceSite == "":
-		values := strings.Split(treatment, ",")
+	case len(treatment) > 0 && len(sourceSite) == 0:
 		q = `
 		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID
 		FROM cancer_study
@@ -128,13 +127,12 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		JOIN clinical_event ON clinical_event.PATIENT_ID = patient.INTERNAL_ID
 		JOIN clinical_event_data ON clinical_event_data.CLINICAL_EVENT_ID = clinical_event.CLINICAL_EVENT_ID AND clinical_event_data.key = 'AGENT' AND clinical_event_data.value IN (%s);
 		`
-		q = fmt.Sprintf(q, "'"+strings.Join(values, "', '")+"'")
+		q = fmt.Sprintf(q, "'"+strings.Join(treatment, "', '")+"'")
 		results, err = clnt.Query(q)
 		if err != nil {
 			return nil, err
 		}
-	case sourceSite != "" && treatment == "":
-		values := strings.Split(sourceSite, ",")
+	case len(sourceSite) > 0 && len(treatment) == 0:
 		q = `
 		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID
 		FROM cancer_study
@@ -142,14 +140,12 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		JOIN sample ON sample.PATIENT_ID = patient.INTERNAL_ID
 		JOIN clinical_sample ON clinical_sample.INTERNAL_ID = sample.INTERNAL_ID AND clinical_sample.ATTR_ID = 'TISSUE_SOURCE_SITE' AND clinical_sample.ATTR_VALUE IN (%s);
 		`
-		q = fmt.Sprintf(q, "'"+strings.Join(values, "', '")+"'")
+		q = fmt.Sprintf(q, "'"+strings.Join(sourceSite, "', '")+"'")
 		results, err = clnt.Query(q)
 		if err != nil {
 			return nil, err
 		}
-	case treatment != "" && sourceSite != "":
-		treatmentValues := strings.Split(treatment, ",")
-		sourceSiteValues := strings.Split(sourceSite, ",")
+	case len(treatment) > 0 && len(sourceSite) > 0:
 		q = `
 		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID
 		FROM cancer_study
@@ -159,7 +155,7 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		JOIN sample ON sample.PATIENT_ID = patient.INTERNAL_ID
 		JOIN clinical_sample ON clinical_sample.INTERNAL_ID = sample.INTERNAL_ID AND clinical_sample.ATTR_ID = 'TISSUE_SOURCE_SITE' AND clinical_sample.ATTR_VALUE IN (%s);
 		`
-		q = fmt.Sprintf(q, "'"+strings.Join(treatmentValues, "', '")+"'", "'"+strings.Join(sourceSiteValues, "', '")+"'")
+		q = fmt.Sprintf(q, "'"+strings.Join(treatment, "', '")+"'", "'"+strings.Join(sourceSite, "', '")+"'")
 		results, err = clnt.Query(q)
 		if err != nil {
 			return nil, err
