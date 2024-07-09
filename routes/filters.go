@@ -3,8 +3,10 @@ package routes
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/imroc/req/v3"
 	"github.com/invisibl-cloud/cbioportal-apiserver/pkg/db"
 	"github.com/invisibl-cloud/cbioportal-apiserver/pkg/types"
 
@@ -121,7 +123,7 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 	switch {
 	case len(treatment) > 0 && len(sourceSite) == 0:
 		q = `
-		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID
+		SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
 		FROM cancer_study
 		JOIN patient ON patient.CANCER_STUDY_ID = cancer_study.CANCER_STUDY_ID
 		JOIN clinical_event ON clinical_event.PATIENT_ID = patient.INTERNAL_ID
@@ -134,7 +136,7 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		}
 	case len(sourceSite) > 0 && len(treatment) == 0:
 		q = `
-		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID
+		SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
 		FROM cancer_study
 		JOIN patient ON patient.CANCER_STUDY_ID = cancer_study.CANCER_STUDY_ID
 		JOIN sample ON sample.PATIENT_ID = patient.INTERNAL_ID
@@ -147,7 +149,7 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		}
 	case len(treatment) > 0 && len(sourceSite) > 0:
 		q = `
-		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID
+		SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
 		FROM cancer_study
 		JOIN patient ON patient.CANCER_STUDY_ID = cancer_study.CANCER_STUDY_ID
 		JOIN clinical_event ON clinical_event.PATIENT_ID = patient.INTERNAL_ID
@@ -162,7 +164,7 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		}
 	default:
 		q = `
-		SELECT DISTINCT cancer_study.CANCER_STUDY_ID, cancer_study.NAME, cancer_study.DESCRIPTION, cancer_study.TYPE_OF_CANCER_ID 
+		SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
 		FROM cancer_study;
 		`
 		results, err = clnt.Query(q)
@@ -172,14 +174,31 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 	}
 	fmt.Println(q)
 
-	out := []types.CancerStudy{}
+	ids := []string{}
 	for results.Next() {
-		var t types.CancerStudy
-		err = results.Scan(&t.ID, &t.Name, &t.Desc, &t.CancerTypeID)
+		var t string
+		err = results.Scan(&t)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, t)
+		ids = append(ids, t)
+	}
+
+	out := []types.CancerStudy{}
+	for _, id := range ids {
+		fmt.Println(id)
+		u := fmt.Sprintf("%s/api/studies/{studyId}", os.Getenv("CBIOPORTAL_URL"))
+		d := types.CancerStudy{}
+		res, err := req.C().R().SetPathParam("studyId", id).SetSuccessResult(&d).Get(u)
+		if err != nil {
+			return nil, err
+		}
+		if res.IsErrorState() {
+			return nil, fmt.Errorf("error getting study details: %s", res.String())
+		}
+		if res.IsSuccessState() {
+			out = append(out, d)
+		}
 	}
 
 	return out, nil
