@@ -149,13 +149,17 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 		}
 	case len(treatment) > 0 && len(sourceSite) > 0:
 		q = `
-		SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
+		(SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
 		FROM cancer_study
 		JOIN patient ON patient.CANCER_STUDY_ID = cancer_study.CANCER_STUDY_ID
 		JOIN clinical_event ON clinical_event.PATIENT_ID = patient.INTERNAL_ID
-		JOIN clinical_event_data ON clinical_event_data.CLINICAL_EVENT_ID = clinical_event.CLINICAL_EVENT_ID AND clinical_event_data.key = 'AGENT' AND clinical_event_data.value IN (%s)
+		JOIN clinical_event_data ON clinical_event_data.CLINICAL_EVENT_ID = clinical_event.CLINICAL_EVENT_ID AND clinical_event_data.key = 'AGENT' AND clinical_event_data.value IN (%s))
+		UNION
+		(SELECT DISTINCT cancer_study.CANCER_STUDY_IDENTIFIER
+		FROM cancer_study
+		JOIN patient ON patient.CANCER_STUDY_ID = cancer_study.CANCER_STUDY_ID
 		JOIN sample ON sample.PATIENT_ID = patient.INTERNAL_ID
-		JOIN clinical_sample ON clinical_sample.INTERNAL_ID = sample.INTERNAL_ID AND clinical_sample.ATTR_ID = 'TISSUE_SOURCE_SITE' AND clinical_sample.ATTR_VALUE IN (%s);
+		JOIN clinical_sample ON clinical_sample.INTERNAL_ID = sample.INTERNAL_ID AND clinical_sample.ATTR_ID = 'TISSUE_SOURCE_SITE' AND clinical_sample.ATTR_VALUE IN (%s));
 		`
 		q = fmt.Sprintf(q, "'"+strings.Join(treatment, "', '")+"'", "'"+strings.Join(sourceSite, "', '")+"'")
 		results, err = clnt.Query(q)
@@ -194,7 +198,8 @@ func GetStudiesWithFiltersV2(c echo.Context) ([]types.CancerStudy, error) {
 			return nil, err
 		}
 		if res.IsErrorState() {
-			return nil, fmt.Errorf("error getting study details: %s", res.String())
+			fmt.Printf("error getting study details: %s\n", res.String())
+			continue
 		}
 		if res.IsSuccessState() {
 			out = append(out, d)
